@@ -1,0 +1,125 @@
+---
+title: "cri_data"
+author: "Shanya Chaubey"
+date: "2023-03-11"
+output: html_document
+---
+
+
+```{r setup, include=FALSE, echo = TRUE}
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\STAT 5000')
+```
+
+```{r}
+
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(compare)
+
+
+```
+
+
+```{r}
+data <- read_csv('climate-risk-index-1.csv')
+head(data)
+columns <- as.list(colnames(data))
+columns
+
+```
+
+```{r}
+data <- data %>% select(-c('cartodb_id','the_geom', 'the_geom_webmercator', 'rw_country_name'))
+head(data)
+
+names(data)[names(data) == 'rw_country_code'] <- 'country_code'
+
+head(data)
+```
+
+```{r}
+
+pop_density <-  read_csv('population_density.csv')
+head(pop_density)
+
+#unit = people per sq. km of land area
+pop_density <- pop_density %>% select(c('Country Code','2019 [YR2019]'))
+head(pop_density)
+
+pop_density$`2019 [YR2019]` <- as.numeric(pop_density$`2019 [YR2019]`)
+head(pop_density)
+
+colnames(pop_density)<- c('country_code', 'pop_den')
+
+new_pop_den <- pop_density %>% distinct()
+
+
+#change column name of Country Code  to country_code
+
+```
+
+```{r}
+gdp_p_c <- read_csv('gdp_per_capita.csv')
+head(gdp_p_c)
+
+#unit-current US$
+gdp_p_c <- gdp_p_c%>% select(c('Country Code', '2019 [YR2019]'))
+head(gdp_p_c)
+
+gdp_p_c$`2019 [YR2019]` <- as.numeric(gdp_p_c$`2019 [YR2019]`)
+head(gdp_p_c)
+#change column name of Country Code  to country_code
+
+colnames(gdp_p_c) <- c('country_code', 'GDP_per_capita')
+head(gdp_p_c)
+```
+
+
+
+
+
+```{r}
+epi_2020 <- read_csv('2020_epi.csv')
+head(epi_2020)
+
+
+epi_score_2020<- epi_2020 %>% select(c( 'iso', 'EPI.new'))
+head(epi_score_2020)
+
+
+epi_2018 <- read_csv('2018_epi.csv')
+head(epi_2018)
+
+
+epi_score_2018<- epi_2018 %>% select(c( 'iso', 'EPI.current'))
+head(epi_score_2018)
+
+
+epi_2019 <- inner_join(epi_score_2018, epi_score_2020, by= "iso")
+head(epi_2019)
+
+print('Missing value in dataframe:')
+sum(is.na(epi_2019))
+
+epi_2019 <- epi_2019  %>% mutate(EPI_new = (EPI.current+EPI.new)/2) %>% select(c('iso', 'EPI_new'))
+head(epi_2019)
+
+colnames(epi_2019) <- c('country_code', 'EPI_score')
+head(epi_2019)
+
+```
+
+
+```{r}
+
+data_1 <- inner_join(data, pop_density, by = 'country_code')
+data_2 <- inner_join(data_1, gdp_p_c, by = 'country_code')
+data_3 <- inner_join(data_2, epi_2019, by = 'country_code', )
+head(data_3)
+
+
+```
+
+
+
