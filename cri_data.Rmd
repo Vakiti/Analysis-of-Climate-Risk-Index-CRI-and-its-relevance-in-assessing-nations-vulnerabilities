@@ -16,6 +16,8 @@ library(tidyverse)
 library(dplyr)
 library(tidyr)
 library(compare)
+library(Hmisc)
+library(corrplot)
 
 
 ```
@@ -118,8 +120,189 @@ data_2 <- inner_join(data_1, gdp_p_c, by = 'country_code')
 data_3 <- inner_join(data_2, epi_2019, by = 'country_code', )
 head(data_3)
 
+data_3 <- data_3 %>% select(-c('fatalities_per_100k_rank', 'fatalities_rank', 'losses_per_gdp__rank', 'losses_usdm_ppp_rank'))
+
+head(data_3)
 
 ```
+
+## Checking for missing values
+
+```{r}
+sum(is.na(data_3))
+
+summary(data_3)
+
+
+
+```
+
+##Checking distribution of each variable
+
+```{r}
+#p_1 <- hist(data_3$EPI_score, main = 'Distribution of EPI score', xlab = 'EPI score')
+#p_1
+
+
+
+data_num <- select_if(data_3, is.numeric)
+num_cols <- colnames(data_num)
+print(num_cols)
+
+
+
+for (i in num_cols){
+  print(i)
+  m <- paste('Distribution of', i)
+  print(m)
+  x <- i
+  print(x)
+  data <- data_num[,i]
+  
+  print(class(data))
+  (hist(data, main=m, xlab = x)) #figure out why the graph heading is not showing up on hist
+}
+
+```
+
+##Checking correlation
+
+Lower cri index indicates higher risk for the country, but it should be kept in mind that the data provided by the countries might not be complete or accurate.
+
+```{r}
+
+corr_dat <- cor(data_num)
+corrplot.mixed(corr_dat, upper = 'square', lower = 'number', addgrid.col = 'black', tl.col = 'black')
+
+
+```
+
+##Checking the central tendencies of numerical columns
+
+```{r}
+
+
+
+for (i in 1:ncol(data_num)){
+  print(class(data_num[,i]))
+  mean = mean(data_num[,i])
+  print(mean)
+  median = median(data_num[,i])
+  mode = mode(data_num[,i])
+  print('Mean of', colnames(data_num)[i], 'is', mean, '\n', 'Median of', colnames(data_num)[i], 'is', median, '\n', 'Mode of', colnames(data_num)[i], 'is', mode)
+}
+  
+
+```
+
+```{r}
+
+data_to_use <- data_num %>% select(-index)
+#print(colnames(data_to_use))
+find_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+# loop through each column of the dataframe and find the central tendencies
+for (col in names(data_to_use)) {
+  if (is.numeric(data_to_use[[col]])) {
+    mean_val <- mean(data_to_use[[col]])
+    median_val <- median(data_to_use[[col]])
+    mode_val <- find_mode(data_to_use[[col]])
+    cat("The mean of ", col, " is ", mean_val, ", median of ", col, " is ", median_val, ", and mode of ", col, " is ", mode_val, ".\n\n", sep="")
+  }
+}
+
+
+```
+
+##Checking for dispersion of data
+
+```{r}
+
+for (col in names(data_to_use)) {
+  if (is.numeric(data_to_use[[col]])) {
+    # calculate range and IQR
+    range_val <- max(data_to_use[[col]]) - min(data_to_use[[col]])
+    IQR_val <- diff(quantile(data_to_use[[col]], c(0.25, 0.75), na.rm = TRUE))
+    
+    # calculate the number of outliers
+    outliers <- data_to_use[[col]] < quantile(data_to_use[[col]], 0.25, na.rm = TRUE) - 1.5 * IQR_val | data_to_use[[col]] > quantile(data_to_use[[col]], 0.75, na.rm = TRUE) + 1.5 * IQR_val
+    num_outliers <- sum(outliers)
+    
+    # print the results
+    cat("The range of the '", col, "' column is ", range_val, ", the IQR of the '", col, "' column is ", IQR_val, ", and the number of outliers in the '", col, "' column are ", num_outliers, ".\n\n", sep="")
+  }
+}
+
+```
+```{r}
+# create an empty data frame to store the results
+results <- data.frame(column = character(), range = numeric(), IQR = numeric(), num_outliers = numeric(), stringsAsFactors = FALSE)
+
+# loop through each column of the dataframe and calculate range, IQR and number of outliers
+for (col in names(data_to_use)) {
+  if (is.numeric(data_to_use[[col]])) {
+    # calculate range and IQR
+    range_val <- max(data_to_use[[col]], na.rm = TRUE) - min(data_to_use[[col]], na.rm = TRUE)
+    IQR_val <- diff(quantile(data_to_use[[col]], c(0.25, 0.75), na.rm=TRUE))
+    
+    # calculate the number of outliers
+    outliers <- data_to_use[[col]] < quantile(data_to_use[[col]], 0.25, na.rm=TRUE) - 1.5 * IQR_val | data_to_use[[col]] > quantile(data_to_use[[col]], 0.75, na.rm=TRUE) + 1.5 * IQR_val
+    num_outliers <- sum(outliers, na.rm=TRUE)
+    
+    # add the results to the data frame
+    results <- rbind(results, data.frame(column = col, range = range_val, IQR = IQR_val, num_outliers = num_outliers, stringsAsFactors = FALSE))
+  }
+}
+
+# print the results as a formatted table
+summary_table <- knitr::kable(results, caption = "Summary of Numeric Columns in data", row.names = FALSE, col.names = c('Column', 'Range', 'IQR', 'No. of Outliers'))
+summary_table
+
+```
+
+```{r}
+data_scale <- scale(data_to_use)
+print(colnames(data_scale))
+
+find_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+# loop through each column of the dataframe and find the central tendencies
+for (col in names(data_scale)) {
+  if (is.numeric(data_scale[[col]])) {
+    mean_val <- mean(data_scale[[col]])
+    median_val <- median(data_scale[[col]])
+    mode_val <- find_mode(data_scale[[col]])
+    cat("The mean of ", col, " is ", mean_val, ", median of ", col, " is ", median_val, ", and mode of ", col, " is ", mode_val, ".\n\n", sep="")
+  }
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
