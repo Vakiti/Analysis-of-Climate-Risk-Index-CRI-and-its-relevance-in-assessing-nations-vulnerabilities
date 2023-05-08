@@ -7,7 +7,7 @@ output: html_document
 
 
 ```{r setup, include=FALSE, echo = TRUE}
-knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\STAT 5000')
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\STAT 5000\\CRI_analysis')
 ```
 
 ```{r}
@@ -18,6 +18,7 @@ library(tidyr)
 library(compare)
 library(Hmisc)
 library(corrplot)
+library(moments)
 
 
 ```
@@ -179,21 +180,6 @@ corrplot.mixed(corr_dat, upper = 'square', lower = 'number', addgrid.col = 'blac
 
 ##Checking the central tendencies of numerical columns
 
-```{r}
-
-
-
-for (i in 1:ncol(data_num)){
-  print(class(data_num[,i]))
-  mean = mean(data_num[,i])
-  print(mean)
-  median = median(data_num[,i])
-  mode = mode(data_num[,i])
-  print('Mean of', colnames(data_num)[i], 'is', mean, '\n', 'Median of', colnames(data_num)[i], 'is', median, '\n', 'Mode of', colnames(data_num)[i], 'is', mode)
-}
-  
-
-```
 
 ```{r}
 
@@ -262,6 +248,83 @@ summary_table <- knitr::kable(results, caption = "Summary of Numeric Columns in 
 summary_table
 
 ```
+#Checking the standard deviation and variance of each column
+
+```{r}
+# calculate the standard deviation and variance for each numeric variable
+sds <- sapply(data_to_use, sd, na.rm = TRUE)
+vars <- sapply(data_to_use, var, na.rm = TRUE)
+
+# print the results
+for (i in 1:length(sds)) {
+  print(paste("Standard deviation and variance of", colnames(data_to_use)[i], "is", sds[i], "and", vars[i]))
+ 
+}
+
+```
+#Checking skewness and kurtosis of variables
+
+```{r}
+
+skew <- sapply(data_to_use, skewness, na.rm = TRUE)
+kurt <- sapply(data_to_use, kurtosis, na.rm = TRUE)
+
+for (i in 1:length(skew)){
+  print(paste("The skewness and kurtosis of", colnames(data_to_use)[i], "is", skew[i], "and", kurt[i]))
+}
+
+
+```
+#Mapping continents to each country
+
+```{r}
+
+key <- read.csv("country-and-continent-codes-list-csv.csv")
+
+key <- key %>% select(c('Continent_Name', 'Three_Letter_Country_Code'))
+colnames(key) <- c("new", "old")
+head(key)
+
+head(key)
+#key$old
+for (i in 1: length(data_3$cri_rank)){
+  if (data_3$country_code[i] %in% key$old){
+    j <- grep(data_3$country_code[i],key$old)
+    data_3$continent[i] <- key$new[j]
+  }
+}
+
+```
+
+#Checking the distribution of cri rank over continents
+
+```{r}
+install.packages("maps")
+install.packages("mapdata")
+install.packages("viridis")
+library(ggplot2)
+library(maps)
+library(mapdata)
+library(viridis)
+
+# Load world map data
+world <- map_data("world")
+
+# Aggregate cri_score by country
+#cri_country <- aggregate(cri_score ~ country_code, data_3, FUN = mean())
+
+# Merge cri_country with world map data
+cri_map <- merge(world, data_3, by.x = "region", by.y = "country")
+
+# Create heatmap with cri_score
+ggplot(cri_map, aes(x = long, y = lat, group = region, fill = cri_score)) +
+  geom_tile() +
+  scale_fill_viridis(name = "CRI Score", option = "A", na.value = "gray90") +
+  labs(title = "CRI Score Distribution by Country") +
+  theme_void()
+```
+
+
 
 ```{r}
 data_scale <- scale(data_to_use)
@@ -283,6 +346,18 @@ for (col in names(data_scale)) {
 }
 
 ```
+
+#Clustering countries absed on geographic and economic data
+
+```{r}
+library(cluster)
+library(factoextra)
+library(stats)
+library(NbClust)
+
+```
+
+
 
 
 
