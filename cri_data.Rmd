@@ -7,25 +7,25 @@ output: html_document
 
 
 ```{r setup, include=FALSE, echo = TRUE}
-knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\STAT 5000\\CRI_analysis')
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\STAT 5000')
 ```
 
 ```{r}
-
+#loading libraries
 library(tidyverse)
 library(dplyr)
 library(tidyr)
 library(compare)
 library(Hmisc)
 library(corrplot)
-library(moments)
 
 
 ```
 
 
 ```{r}
-data <- read_csv('climate-risk-index-1.csv')
+#reading data
+data <- read_csv('C:\\Users\\hp\\OneDrive\\Desktop\\CRI_analysis-main\\climate-risk-index-1.csv')
 head(data)
 columns <- as.list(colnames(data))
 columns
@@ -33,15 +33,18 @@ columns
 ```
 
 ```{r}
+#removing unnecessary columns 
 data <- data %>% select(-c('cartodb_id','the_geom', 'the_geom_webmercator', 'rw_country_name'))
 head(data)
 
+#renaming columns 
 names(data)[names(data) == 'rw_country_code'] <- 'country_code'
 
 head(data)
 ```
 
 ```{r}
+#dealing with pop_density dataset
 
 pop_density <-  read_csv('population_density.csv')
 head(pop_density)
@@ -63,6 +66,8 @@ new_pop_den <- pop_density %>% distinct()
 ```
 
 ```{r}
+#dealing with gdp per capita dataset
+
 gdp_p_c <- read_csv('gdp_per_capita.csv')
 head(gdp_p_c)
 
@@ -80,9 +85,8 @@ head(gdp_p_c)
 
 
 
-
-
 ```{r}
+#dealing with epi dataset 
 epi_2020 <- read_csv('2020_epi.csv')
 head(epi_2020)
 
@@ -115,7 +119,7 @@ head(epi_2019)
 
 
 ```{r}
-
+#joining datasets and making a megadataset
 data_1 <- inner_join(data, pop_density, by = 'country_code')
 data_2 <- inner_join(data_1, gdp_p_c, by = 'country_code')
 data_3 <- inner_join(data_2, epi_2019, by = 'country_code', )
@@ -127,63 +131,228 @@ head(data_3)
 
 ```
 
+------------------------------------------------------------------------------------------------------------------------
+
+
 ## Checking for missing values
 
 ```{r}
 sum(is.na(data_3))
-
-summary(data_3)
-
-
-
 ```
+```{r}
+# Remove all rows with missing data
+data_3_no_missing <- na.omit(data_3)
+
+# Check the new dimensions of the data
+dim(data_3_no_missing)
+data_3_no_missing
+```
+
+
+##Checking Central Tendencies
+
+```{r}
+summary(data_3_no_missing)
+```
+
+------------------------------------------------------------------------------------------------------------------------
 
 ##Checking distribution of each variable
 
 ```{r}
 #p_1 <- hist(data_3$EPI_score, main = 'Distribution of EPI score', xlab = 'EPI score')
 #p_1
-
-
-
-data_num <- select_if(data_3, is.numeric)
+data_num <- select_if(data_3_no_missing, is.numeric)
 num_cols <- colnames(data_num)
-print(num_cols)
-
-
 
 for (i in num_cols){
-  print(i)
   m <- paste('Distribution of', i)
-  print(m)
   x <- i
-  print(x)
   data <- data_num[,i]
   
-  print(class(data))
-  (hist(data, main=m, xlab = x)) #figure out why the graph heading is not showing up on hist
+  hist(data, main=m, xlab = x)
+  abline(v = mean(data), col = 'red', lwd = 2)
 }
 
 ```
+
+
+```
+**INSIGHTS**
+
+No need to scale the index
+cri_rank has uniform distribution with minimum deviations (0-140 range)
+cri_score has normal distribution (0-120 range)
+fatalities_perk_100k_total, fatalities_total (range:0-5000) have a similar right skewed distribution 
+fatalities_perk_100k_total has a majority range between 0 and 10 range(0-50)
+losses_per_gdp_total (range:0-80) and losses_per_pp_total (range:0-40000) have similar right skewed distribution
+pop_den is heavily right skewed (range: 0-1400)
+gdp_per_capita is heavily right skewed (range: 0-80000)
+epi_score is slighty right skewed (range: 20-90)
+
+```
+```{r}
+dim(data_num)
+```
+
+```{r}
+#removing index column
+data_num <- data_num[, -1]
+
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+##Pair-plots
+
+```{r}
+#plotting all num variables
+pairs(data_num, cex=0.1)
+```
+
+```
+**INSIGHTS**
+
+Only cri_rank and cri_score have a definitive linear relationship. 
+
+If a majority of the scatter plots are points forming a thin vertical strip parallel to the y-axis on the left, it could indicate that the variable on the x-axis has a limited range of values. It's also possible that there is simply no strong relationship between the two variables, and the vertical strip is just a result of the limited range or nature of the data. In this case, it may be worth exploring other variables or techniques to uncover any meaningful relationships in the data.
+```
+
+```{r}
+#seeing relationships in detail between cri_score, pop_den, epi_score, losses_gdp etc. 
+pairs(data_num[,c(2,4,5,6,7,8,9)], cex = 0.4)
+```
+```
+**INSIGHTS**
+GDP_per_cap and EPI_Score have an upward curve relationshi, it seems like there is a positive correlation between GDP_per_cap and EPI_Score, indicating that countries with higher GDP per capita tend to have higher environmental performance index scores.
+
+Other graphs show a higher density of points accumulated on the first half of the x-axis, which could indicate that the values in these variables are skewed to the left. This means that a majority of the data points fall within a smaller range of values.
+
+Some graphs show points scattered across the x-axis but not much on their y-axis, there is probably little to no correlation between these variables.
+
+Majority of the graphs still show vertical strips that depict low variation. This could be an indication that these variables may not be useful in predicting the target variable, or that other variables may need to be considered to fully understand the relationship between the variables.
+
+```
+------------------------------------------------------------------------------------------------------------------------
+
 
 ##Checking correlation
 
 Lower cri index indicates higher risk for the country, but it should be kept in mind that the data provided by the countries might not be complete or accurate.
 
 ```{r}
-
 corr_dat <- cor(data_num)
 corrplot.mixed(corr_dat, upper = 'square', lower = 'number', addgrid.col = 'black', tl.col = 'black')
-
-
 ```
-
-##Checking the central tendencies of numerical columns
 
 
 ```{r}
+# Calculate the correlation matrix
+cor_mat <- cor(data_num)
 
-data_to_use <- data_num %>% select(-index)
+# Create the correlation heatmap
+corrplot(cor_mat, type = "upper", order = "hclust", tl.col = "black", tl.srt = 45)
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+##Outlier plotting
+
+#creating boxplots of all numerical columns 
+```{r}
+# Create a boxplot of all columns in data_num
+boxplot(data_num, main="Boxplots of Numeric Variables in data_num", col="lightblue", pch=20)
+
+# Identify outliers and mark them in red
+out <- boxplot(data_num, plot=FALSE)$out
+for(i in 1:length(out)) {
+  points(which(data_num==out[i], arr.ind=TRUE), col="red", pch=20)
+}
+
+```
+
+
+#Zooming into boxplots and removing GDP_per_capita in the next version because it is causing the scale to distort 
+```{r}
+# create a subset of data_num with all columns except gdp_per_capita
+data_num_subset <- data_num[, -which(names(data_num) == "GDP_per_capita")]
+
+# Create a boxplot of all columns in data_num_subset
+boxplot(data_num_subset, main="Boxplots of Numeric Variables in data_num except GDP_PER_CAP",
+        col="lightblue", pch=20, ylim=c(0,1000), las=2)
+
+# Identify outliers and mark them in red
+out <- boxplot(data_num_subset, plot=FALSE)$out
+for(i in 1:length(out)) {
+  points(which(data_num_subset==out[i], arr.ind=TRUE), col="red", pch=20)
+}
+
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+##Transforming the data: A common approach is to apply a logarithmic transformation to the data. This can help to "spread out" the values on the right side of the plot and make the distribution more symmetric. A commonly used threshold is a skewness value greater than +1 or +2. When the skewness value is greater than this threshold, it is generally considered to be a heavy right skew. 
+
+```{r}
+right_skew_cols
+```
+
+
+```{r}
+#install.packages("moments")
+library(moments)
+# identify columns with heavy right skew
+skew_threshold <- 1 # set the skewness threshold
+right_skew_cols <- numeric()
+for (i in 1:ncol(data_num)) {
+  if (skewness(data_num[, i]) > skew_threshold) {
+    right_skew_cols <- c(right_skew_cols, i)
+  }
+}
+
+# apply logarithmic scaling to right-skewed columns
+data_num_log <- data_num
+for (col in right_skew_cols) {
+  data_num_log[, col] <- log(data_num[, col])
+}
+
+data_num_log
+```
+```
+The result data_num_log has -inf values. A value of -Inf typically indicates that a calculation involving division by zero or the natural logarithm of zero has occurred. 
+```
+------------------------------------------------------------------------------------------------------------------------
+
+##Detecting and removing inf value rows
+
+```{r}
+# Get names of columns with Inf and -Inf values
+inf_cols <- sapply(data_num_log, function(x) any(is.infinite(x)))
+inf_col_names <- names(inf_cols[inf_cols])
+
+inf_col_names
+```
+```{r}
+# Find rows with Inf and -Inf values in "fatalities_per_100k_total" and "fatalities_total" columns
+inf_rows <- is.infinite(data_num_log$fatalities_per_100k_total) | is.infinite(data_num_log$fatalities_total)
+
+# Remove rows with Inf and -Inf values
+data_num_log_cleaned <- data_num_log[!inf_rows, ]
+
+
+data_num_log_cleaned
+```
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+##Checking the central tendencies of numerical columns
+
+```{r}
+
+data_to_use <- data_num_log_cleaned
 #print(colnames(data_to_use))
 find_mode <- function(x) {
   ux <- unique(x)
@@ -199,7 +368,6 @@ for (col in names(data_to_use)) {
     cat("The mean of ", col, " is ", mean_val, ", median of ", col, " is ", median_val, ", and mode of ", col, " is ", mode_val, ".\n\n", sep="")
   }
 }
-
 
 ```
 
@@ -223,6 +391,8 @@ for (col in names(data_to_use)) {
 }
 
 ```
+
+##Summarizing the dispersion results in a table
 ```{r}
 # create an empty data frame to store the results
 results <- data.frame(column = character(), range = numeric(), IQR = numeric(), num_outliers = numeric(), stringsAsFactors = FALSE)
@@ -248,131 +418,542 @@ summary_table <- knitr::kable(results, caption = "Summary of Numeric Columns in 
 summary_table
 
 ```
-#Checking the standard deviation and variance of each column
+
+------------------------------------------------------------------------------------------------------------------------
+
+##Printing Column names
 
 ```{r}
-# calculate the standard deviation and variance for each numeric variable
-sds <- sapply(data_to_use, sd, na.rm = TRUE)
-vars <- sapply(data_to_use, var, na.rm = TRUE)
-
-# print the results
-for (i in 1:length(sds)) {
-  print(paste("Standard deviation and variance of", colnames(data_to_use)[i], "is", sds[i], "and", vars[i]))
- 
-}
-
-```
-#Checking skewness and kurtosis of variables
-
-```{r}
-
-skew <- sapply(data_to_use, skewness, na.rm = TRUE)
-kurt <- sapply(data_to_use, kurtosis, na.rm = TRUE)
-
-for (i in 1:length(skew)){
-  print(paste("The skewness and kurtosis of", colnames(data_to_use)[i], "is", skew[i], "and", kurt[i]))
-}
-
-
-```
-#Mapping continents to each country
-
-```{r}
-
-key <- read.csv("country-and-continent-codes-list-csv.csv")
-
-key <- key %>% select(c('Continent_Name', 'Three_Letter_Country_Code'))
-colnames(key) <- c("new", "old")
-head(key)
-
-head(key)
-#key$old
-for (i in 1: length(data_3$cri_rank)){
-  if (data_3$country_code[i] %in% key$old){
-    j <- grep(data_3$country_code[i],key$old)
-    data_3$continent[i] <- key$new[j]
-  }
-}
-
+data_scale <- as.data.frame(data_to_use)
+print(colnames(data_to_use))
 ```
 
-#Checking the distribution of cri rank over continents
 
 ```{r}
-install.packages("maps")
-install.packages("mapdata")
-install.packages("viridis")
+
+# find_mode <- function(x) {
+#   ux <- unique(x)
+#   ux[which.max(tabulate(match(x, ux)))]
+# }
+# 
+# # loop through each column of the dataframe and find the central tendencies
+# for (col in names(data_scale)) {
+#   if (is.numeric(data_scale[[col]])) {
+#     mean_val <- mean(data_scale[[col]])
+#     median_val <- median(data_scale[[col]])
+#     mode_val <- find_mode(data_scale[[col]])
+#     cat("The mean of ", col, " is ", mean_val, ", median of ", col, " is ", median_val, ", and mode of ", col, " is ", mode_val, ".\n\n", sep="")
+#   }
+# }
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+#Checking impact of different variables on cri_score
+
+#APPROACH 1: USING fatalities_per_100k_total + losses_per_gdp__total +losses_usdm_ppp_total ONLY 
+
+```{r}
+#checking variable impacts on cri score--approach 1
+model <- lm(cri_score ~ fatalities_per_100k_total + losses_per_gdp__total +losses_usdm_ppp_total, data = data_scale)
+summary(model)
+summary(model)$coefficient
+```
+```
+**INSIGHTS**
+
+The results show the coefficients for a linear regression model that predicts the cri_score variable using the predictors fatalities_per_100k_total, losses_per_gdp__total, and losses_usdm_ppp_total.
+
+The intercept is 50.8428, indicating that cri_score is expected to be around 50.8 when all predictors are 0.
+
+The coefficients of the predictors are all negative, indicating that as each predictor increases, the cri_score decreases. Specifically, for every unit increase in fatalities_per_100k_total, the cri_score is expected to decrease by 8.6208. For every unit increase in losses_per_gdp__total, the cri_score is expected to decrease by 2.8918. And for every unit increase in losses_usdm_ppp_total, the cri_score is expected to decrease by 3.8633.
+
+The p-values for all the predictors are very small (less than 2e-16), indicating that they are all statistically significant predictors of cri_score.
+
+The multiple R-squared is 0.9067, indicating that the model explains a large proportion of the variance in the cri_score variable.
+
+The adjusted R-squared is 0.904, indicating that the predictors in the model account for a substantial proportion of the variance in the cri_score variable, while considering the number of predictors.
+
+Overall, the model suggests that higher values of fatalities_per_100k_total, losses_per_gdp__total, and losses_usdm_ppp_total are associated with lower cri_score values, indicating that countries with higher levels of fatalities, losses, and damages are likely to have a lower climate risk index score.
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+#APPROACH 2: USING fatalities_per_100k_total + losses_per_gdp__total +losses_usdm_ppp_total+ pop_den + GDP_per_capita + EPI_score 
+
+```{r}
+#checking variable impacts on cri score--approach 2
+model_2 <- lm(cri_score ~ fatalities_per_100k_total + losses_per_gdp__total +losses_usdm_ppp_total+ pop_den + GDP_per_capita + EPI_score, data = data_scale)
+summary(model_2)
+summary(model_2)$coefficient
+```
+
+```
+**INSIGHTS**
+This multiple linear regression model that includes six predictor variables: fatalities_per_100k_total, losses_per_gdp__total, losses_usdm_ppp_total, pop_den, GDP_per_capita, and EPI_score, in addition to the intercept. The response variable is cri_score.
+
+The coefficient estimates suggest that fatalities_per_100k_total, losses_per_gdp__total, losses_usdm_ppp_total, and GDP_per_capita are significantly associated with cri_score, while pop_den and EPI_score are not so much. Specifically, a one-unit increase in fatalities_per_100k_total is associated with an estimated decrease of 8.398 in cri_score, holding other variables constant. A one-unit increase in losses_per_gdp__total is associated with an estimated decrease of 1.831 in cri_score, holding other variables constant. A one-unit increase in losses_usdm_ppp_total is associated with an estimated decrease of 5.296 in cri_score, holding other variables constant. A one-unit increase in GDP_per_capita is associated with an estimated increase of 3.131 in cri_score, holding other variables constant.
+
+The adjusted R-squared of the model is 0.9374, indicating that the model explains 93.74% of the variance in cri_score. The F-statistic is significant at the 0.01 level, suggesting that at least one of the predictor variables has a significant association with the response variable. The residual standard error is 6.316, indicating that the model's predictions have an average error of about 6.316 units.
+
+```
+
+
+##How are Model 1 results different from Model 2?
+Model 1 only includes three predictor variables, while Model 2 includes six predictor variables. 
+
+In Model 2, the additional predictors are population density, GDP per capita, and EPI score. 
+
+The coefficient estimates for each variable are also different between the two models. 
+
+The R-squared value for Model 2 is higher, which means it explains more of the variance in the response variable than Model 1. 
+
+Additionally, Model 2 has a lower residual standard error, indicating that it fits the data better than Model 1.
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+#APPROACH 3: SAME AS APPROACH 2 BUT DIFFERENT ORDER 
+
+```{r}
+#checking variable impacts on cri score--approach 3
+model_3 <- lm(cri_score ~ pop_den+ EPI_score + losses_usdm_ppp_total+ fatalities_per_100k_total + losses_per_gdp__total + GDP_per_capita , data = data_scale)
+summary(model_3)
+summary(model_3)$coefficient
+```
+
+```
+**INSIGHTS**
+
+Model 3 is similar to model 2, with cri_score as the response variable and six predictor variables: pop_den, EPI_score, losses_usdm_ppp_total, fatalities_per_100k_total, losses_per_gdp__total, and GDP_per_capita. 
+
+The difference is that of order in which the variables were arranged. 
+
+The coefficients of pop_den and EPI_score are not statistically significant. The other four predictor variables have statistically significant coefficients. The adjusted R-squared of Model 3 (0.9374) is lower than that of Model 2 (0.9432), indicating that Model 3 may be a slightly worse fit than Model 2.
+
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+##TRAINING AND TESTING MODELS 1, 2 AND 3
+
+#making training and testing sets 
+```{r}
+sample <- sample(c(TRUE, FALSE), nrow(data_scale), replace = TRUE, prob = c(0.7, 0.3))
+train <- data_scale[sample,]
+test <- data_scale[!sample,]
+```
+
+
+#Using Model 1 : Predicting and plotting results
+```{r}
+model <- lm(cri_score ~ fatalities_per_100k_total + losses_per_gdp__total +losses_usdm_ppp_total, data = train)
+summary(model)
+summary(model)$coefficient
+```
+```
+**INSIGHTS**
+
+This is the summary output of a multiple linear regression model. The model is used to predict a continuous dependent variable "cri_score" based on the values of three independent variables: "fatalities_per_100k_total", "losses_per_gdp__total", and "losses_usdm_ppp_total".
+
+The results indicate that all three independent variables are significantly related to the dependent variable at a 95% confidence level. This is evidenced by the low p-values (all less than 0.05) and the presence of asterisks (***) next to each coefficient in the table. The intercept term is also significant.
+
+The coefficient estimates indicate the direction and strength of the relationship between each independent variable and the dependent variable. For example, a one-unit increase in "fatalities_per_100k_total" is associated with a 9.2943 unit decrease in "cri_score", holding all other variables constant.
+
+The R-squared value of 0.9056 indicates that the model explains a high proportion of the variance in the dependent variable. However, the Adjusted R-squared value of 0.9018 suggests that the addition of more independent variables to the model may not improve its predictive power much.
+
+The F-statistic of 239.7 and its associated p-value indicate that the overall model is highly significant and that at least one of the independent variables is significantly related to the dependent variable.
+
+Overall, this model suggests that higher levels of fatalities, losses per GDP, and losses in USD PPP are associated with lower crisis scores.
+```
+
+
+```{r}
+prediction1 <- predict(model, newdata=test)
+prediction1
+```
+
+
+```{r}
 library(ggplot2)
-library(maps)
-library(mapdata)
-library(viridis)
+# Create data for ggplot2
+data_mod <- data.frame(Predicted = prediction1,  
+                       Observed = test$cri_score)
 
-# Load world map data
-world <- map_data("world")
+# Draw plot using ggplot2 package
+ggplot(data_mod,                                     
+       aes(x = Predicted,
+           y = Observed)) +
+  geom_point() 
+```
+```
+**INSIGHTS**
+The points in the plot show an upward sloping line, it may indicate that this model is underestimating the true values for lower predicted values and overestimating them for higher predicted values. This is a common issue known as heteroscedasticity, which means that the variance of the residuals is not constant across the range of the predictor variable.
 
-# Aggregate cri_score by country
-#cri_country <- aggregate(cri_score ~ country_code, data_3, FUN = mean())
-
-# Merge cri_country with world map data
-cri_map <- merge(world, data_3, by.x = "region", by.y = "country")
-
-# Create heatmap with cri_score
-ggplot(cri_map, aes(x = long, y = lat, group = region, fill = cri_score)) +
-  geom_tile() +
-  scale_fill_viridis(name = "CRI Score", option = "A", na.value = "gray90") +
-  labs(title = "CRI Score Distribution by Country") +
-  theme_void()
+To address this issue, we can try transforming either the response variable or the predictor variables or both. Another option is to use a different model that can handle heteroscedasticity, such as a weighted least squares regression.
 ```
 
 
+#Using Model 2: Predicting and plotting results
+```{r}
+prediction2 <- predict(model_2, newdata=test)
+prediction2
+```
 
 ```{r}
-data_scale <- scale(data_to_use)
-print(colnames(data_scale))
+library(ggplot2)
+# Create data for ggplot2
+data_mod <- data.frame(Predicted = prediction2,  
+                       Observed = test$cri_score)
 
-find_mode <- function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
+# Draw plot using ggplot2 package
+ggplot(data_mod,                                     
+       aes(x = Predicted,
+           y = Observed)) +
+  geom_point() 
+```
 
-# loop through each column of the dataframe and find the central tendencies
-for (col in names(data_scale)) {
-  if (is.numeric(data_scale[[col]])) {
-    mean_val <- mean(data_scale[[col]])
-    median_val <- median(data_scale[[col]])
-    mode_val <- find_mode(data_scale[[col]])
-    cat("The mean of ", col, " is ", mean_val, ", median of ", col, " is ", median_val, ", and mode of ", col, " is ", mode_val, ".\n\n", sep="")
-  }
-}
+```
+**INSIGHTS**
+The points in this plot also show an upward sloping line, it may indicate that this model is underestimating the true values for lower predicted values and overestimating them for higher predicted values. This is a common issue known as heteroscedasticity, which means that the variance of the residuals is not constant across the range of the predictor variable.
+
+To address this issue, we can try transforming either the response variable or the predictor variables or both. Another option is to use a different model that can handle heteroscedasticity, such as a weighted least squares regression.
+```
+
+#Using Model 3: Predicting and plotting results
+
+```{r}
+prediction3 <- predict(model_3, newdata=test)
+prediction3
+```
+
+```{r}
+library(ggplot2)
+# Create data for ggplot2
+data_mod <- data.frame(Predicted = prediction3,  
+                       Observed = test$cri_score)
+
+# Draw plot using ggplot2 package
+ggplot(data_mod,                                     
+       aes(x = Predicted,
+           y = Observed)) +
+  geom_point() 
+```
+
+```
+**INSIGHTS--ALMOST SAME AS MODELS 1 AND 2** 
+The points in this plot also show an upward sloping line, it may indicate that this model is underestimating the true values for lower predicted values and overestimating them for higher predicted values. This is a common issue known as heteroscedasticity, which means that the variance of the residuals is not constant across the range of the predictor variable.
+
+To address this issue, we can try transforming either the response variable or the predictor variables or both. Another option is to use a different model that can handle heteroscedasticity, such as a weighted least squares regression.
+```
+------------------------------------------------------------------------------------------------------------------------
+
+#USING A WEIGHTED LEAST SQUARES REGRESSION MODEL ON THE BEST PERFORMING LINEAR REGRESSION MODEL AKA MODEL-3
+
+
+```{r}
+# calculate weights based on the inverse of the variance of cri_score
+weights <- 1/var(data_scale$cri_score)
+
+# set the length of the weights vector to match the length of the response variable
+weights <- rep(weights, length(data_scale$cri_score))
+
+# fit weighted least squares regression model
+model_wls <- lm(cri_score ~ pop_den + EPI_score + losses_usdm_ppp_total + fatalities_per_100k_total + losses_per_gdp__total + GDP_per_capita, 
+                data = data_scale, weights = weights)
+
+summary(model_wls)
+
 
 ```
 
-#Clustering countries absed on geographic and economic data
+##PLOTTING THE RESULTS 
+```{r}
+plot(model_wls$fitted.values, data_scale$cri_score, xlab = "Predicted Values", ylab = "Observed Values", main = "Weighted Least Squares Regression Results")
+
+```
+
+```
+Findings:
+The model fits the data well, with a high R-squared value of 0.9409 and an adjusted R-squared value of 0.9374. This suggests that the model explains around 94% of the variance in the response variable cri_score after adjusting for the number of predictors.
+The variables, losses_usdm_ppp_total and fatalities_per_100k_total, show strong negative associations with cri_score. This implies that a higher value of losses_usdm_ppp_total or fatalities_per_100k_total is associated with a lower value of cri_score.
+The variable, GDP_per_capita, has a positive association with cri_score, meaning that a higher GDP_per_capita is associated with a higher cri_score.
+
+Insights:
+It appears that the magnitude of the effect of losses_usdm_ppp_total and fatalities_per_100k_total on cri_score is higher than the other predictors since the coefficients for these two variables are much larger in absolute value than those of the other predictors.
+The variable, pop_den, has a low t-value and high p-value, indicating that it is not a significant predictor of cri_score in this model.
+The variable, EPI_score, has a relatively low coefficient value and high p-value, suggesting that it may not be a strong predictor of cri_score in this model.
+
+Inferences:
+The results suggest that minimizing losses from natural disasters, such as reducing fatalities and losses, and promoting economic growth (as indicated by higher GDP_per_capita) can improve the cri_score of a country.
+The variable, pop_den, may not be a significant factor in predicting cri_score, at least in the context of this model.
+Although EPI_score may not be a significant predictor of cri_score in this model, it could still be a useful predictor when combined with other variables in other models.
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+##CLUSTERING 
+
+#Determining optimal number of clusters
+```{r}
+#install.packages("factoextra")
+library(factoextra)
+set.seed(1)
+k_means_data<-data_scale %>% select(-c("cri_score", "cri_rank")) %>% na.omit()
+fviz_nbclust(k_means_data, kmeans, method = 'silhouette')
+```
+
+#Clustering the results using Euclidean Distance (DEFAULT)
+```{r}
+k_2 <- kmeans(k_means_data, 2)
+k_2$cluster
+
+k2_centers <- k_2$centers
+fviz_cluster(k_2, k_means_data)+ ggtitle("Clustering Results using Euclidean distance")
+```
+
+
+#Clustering the results using Cosine Distance (DEFAULT)
+```{r}
+x <- as.matrix(k_means_data)
+
+# compute cosine distance matrix
+library(proxy)
+cosine.dist <- dist(x, method = "cosine")
+
+# perform k-means clustering with cosine distance
+k <- 2  # number of clusters
+set.seed(123)  # set random seed for reproducibility
+km.res <- kmeans(cosine.dist, centers = k, nstart = 10)
+
+# print the cluster assignments
+km.res$cluster
+km_centers <- km.res$centers
+fviz_cluster(km.res, k_means_data)+ ggtitle("Clustering Results using Cosine distance")
+```
+
 
 ```{r}
+#install.packages("cluster")
+#install.packages("factoextra")
+
 library(cluster)
 library(factoextra)
-library(stats)
-library(NbClust)
+```
+
+
+```{r}
+# compute distance matrix using Manhattan distance
+manhattan_dist <- dist(k_means_data, method = "manhattan")
+
+# perform k-means clustering using Manhattan distance
+k_manhattan <- kmeans(manhattan_dist, centers = 2)
+
+# visualize the results
+fviz_cluster(k_manhattan, data = k_means_data, stand = FALSE)+ ggtitle("Clustering Results using Manhattan distance")
+
+# compute distance matrix using Chebyshev distance
+chebyshev_dist <- dist(k_means_data, method = "chebyshev")
+
+# perform k-means clustering using Chebyshev distance
+k_chebyshev <- kmeans(chebyshev_dist, centers = 2)
+
+# visualize the results
+fviz_cluster(k_chebyshev, data = k_means_data, stand = FALSE)+ ggtitle("Clustering Results using Chebyshev distance")
+```
+
+
+```{r}
+# calculate Mahalanobis distance matrix
+mah_dist <- mahalanobis(k_means_data, colMeans(k_means_data), cov(k_means_data))
+
+# perform k-means clustering using Mahalanobis distance
+k_2_mah <- kmeans(mah_dist, centers = 2)
+
+# visualize the results
+fviz_cluster(k_2_mah, k_means_data)+ ggtitle("Clustering Results using Mahalanobis distance")
+
+```
+
+```
+Insights: 
+
+If Manhattan and Chebyshev distances result in two distinct clusters, it suggests that the data points are more separated in these distance metrics as compared to Euclidean distance. Manhattan distance measures the distance between two points by summing the absolute differences of their coordinates, while Chebyshev distance measures the maximum difference between any coordinate of two points.
+
+If the data points are more spread out in these metrics, it could be because they have different ranges or scales in the different dimensions. This could indicate that some features have more influence than others in determining the distance between the points, and might warrant further investigation. Additionally, it might suggest that there are two clear groups or clusters within the data.
+
+*************
+
+Conclusion:
+The results suggest that the choice of distance metric can significantly impact the clustering results.
+The fact that Manhattan and Chebyshev distances produced two distinct clusters, while other types could not, indicates that the structure of the data is better represented using the former two metrics.
+
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+#CREATING A NEW FLUCTUATION SCALE TO MEASURE COUNTRIES' VULNERABILITY
+
+We first calculate the standard deviation of the cri_score variable using the sd() function. We then calculate the lower and upper bounds of the range by subtracting and adding the standard deviation from the cri_score variable, respectively.
+
+Finally, we create a new variable called cri_fluctuation that concatenates the lower and upper bounds of the range using the paste0() function. The round() function is used to round the values to two decimal places before concatenating them with a hyphen.
+
+```{r}
+# calculate the standard deviation of cri_score
+sd_score <- sd(data_num_log_cleaned$cri_score)
+
+# calculate the lower and upper bounds of the range
+lower_bound <- data_num_log_cleaned$cri_score - sd_score
+upper_bound <- data_num_log_cleaned$cri_score + sd_score
+
+# create a new variable for the fluctuation range
+breaks <- quantile(data_num_log_cleaned$cri_score, probs = c(0, 1/3, 2/3, 1))
+labels <- c("Low", "Moderate", "High")
+
+# create two new variables for cri_score fluctuation
+data_num_log_cleaned <- data_num_log_cleaned %>%
+  mutate(cri_score_fluctuation = cut(cri_score, breaks = breaks, labels = c(1:length(labels))),
+         cri_fluctuation_level = labels[cri_score_fluctuation])
+
+data_num_log_cleaned
+```
+
+```
+We first calculate the standard deviation of the "cri_score" variable in the "data_num_log_cleaned" dataset. Then we calculate the lower and upper bounds of the range by subtracting and adding the standard deviation from the "cri_score" variable, respectively.
+
+Next, we use the "quantile()" function to create three intervals of equal probability based on the "cri_score" variable. The resulting breaks are stored in the "breaks" variable, and the labels "Low", "Moderate", and "High" are stored in the "labels" variable.
+
+Finally, we create two new variables using the "mutate()" function from the dplyr package. The first new variable, "cri_score_fluctuation", is created by cutting the "cri_score" variable into the previously defined intervals using the "cut()" function, with the breaks and labels arguments. The resulting values are the integer values 1, 2, and 3, corresponding to the intervals "Low", "Moderate", and "High". The second new variable, "cri_fluctuation_level", is created by mapping the integer values of "cri_score_fluctuation" to the corresponding interval labels in the "labels" vector. The resulting modified dataset is stored back in "data_num_log_cleaned".
+
+Result:
+The result of this code is the creation of two new variables, "cri_score_fluctuation" and "cri_fluctuation_level", in the "data_num_log_cleaned" dataset. These variables are created by dividing the "cri_score" variable into three intervals of equal probability based on its standard deviation and mapping the resulting interval values to corresponding labels. The modified dataset is then stored back in "data_num_log_cleaned".
+```
+
+##CONCLUSION: Based on the given information, we can infer that countries with higher "cri_score_fluctuation" levels are more vulnerable to natural disasters. This vulnerability is likely due to the fact that a higher "cri_score" indicates a greater likelihood of natural disasters occurring in a country. Therefore, countries with higher "cri_score_fluctuation" levels are more likely to experience fluctuations in the occurrence and severity of natural disasters, which can have a significant impact on their economies, infrastructure, and populations. It is important to take into consideration the vulnerability of countries when planning for disaster preparedness, response, and recovery efforts.
+
+------------------------------------------------------------------------------------------------------------------------
+#CREATING THE FINAL DATASET 
+
+```{r}
+print(colnames(data_num_log_cleaned))
+```
+
+
+```{r}
+# Assuming the scaled columns are named as col1, col2, col3 in data_num_log_cleaned
+data_3_final_merged <- merge(data_3, data_num_log_cleaned, by = "cri_rank")
+
+data_3_final_merged
+```
+```{r}
+# check for duplicates based on the "cri_rank" column
+duplicated_rows <- duplicated(data_3_final_merged$cri_rank)
+
+# subset the dataframe to remove duplicates based on the "cri_rank" column
+final_combined_data <- data_3_final_merged[!duplicated_rows,]
+
+final_combined_data <- final_combined_data %>% 
+  select(-ends_with(".x"))
+
+final_combined_data <- final_combined_data[, !grepl("index", names(final_combined_data))]
+final_combined_data
+```
+```{r}
+# Identify rows with missing values
+missing_rows <- !complete.cases(final_combined_data)
+
+# Remove rows with missing values
+final_combined_data <- final_combined_data[!missing_rows, ]
+final_combined_data
+```
+
+```{r}
+print(colnames(final_combined_data))
+
+```
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+##EDA ON FINAL DATASET
+
+
+```
+4 Bivariate and 4 multivariate analyses graphs will be plotted based on all the variables in final_combined data
+```
+
+##Univariate Analysis 
+
+```{r}
+#Scatter plot between GDP_per_capita and cri_score:
+ggplot(data = final_combined_data, aes(x = GDP_per_capita.y, y = cri_score.y)) +
+  geom_point() +
+  labs(x = "GDP per capita", y = "CRI score", title= "Relationship between CRI score and GDP per capita")
+
+```
+
+
+```{r}
+#Bar chart between country_code and fatalities_total
+ggplot(data = final_combined_data, aes(x = country_code, y = fatalities_total.y, fill = country_code)) +
+  geom_bar(stat = "identity") + scale_fill_discrete(guide = FALSE) +
+  labs(x = "Country code", y = "Total fatalities", title="Countries vs. Total number of fatalities") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=5))
+```
+
+```{r}
+#Boxplot between EPI_score and losses_per_gdp__total
+ggplot(data = final_combined_data, aes(x = EPI_score.y, y = losses_per_gdp__total.y)) +
+  geom_boxplot() +
+  labs(x = "EPI score", y = "Losses per GDP" , title= "EPI Score vs. Losses in per GDP unit")
+```
+
+```
+From the plot, we can observe that countries with higher EPI scores generally have lower losses per GDP, i.e., they are more resilient to environmental disasters. The median losses per GDP are lower for countries with higher EPI scores, and the distribution of losses per GDP is wider for countries with lower EPI scores. This suggests that countries with higher EPI scores may have better policies and infrastructure to mitigate the impact of environmental disasters, resulting in lower economic losses.
+
+```
+
+
+```{r}
+#scatterplot of countries vs. fluctuation levels
+ggplot(data = final_combined_data, aes(x = cri_fluctuation_level, y = pop_den.y, color = cri_fluctuation_level)) +
+  geom_point() +
+  labs(x = "CRI fluctuation level", y = "Population density", title="CRI Fluctuation Levels in Different Countries")
 
 ```
 
 
 
 
+##Multivariate Analysis
+
+```{r}
+library(tidyr)
+
+final_combined_data %>%
+  pivot_longer(cols = c(fatalities_total.y, losses_usdm_ppp_total.y), names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = cri_fluctuation_level, y = value, fill = variable)) +
+  geom_col(position = "stack") +
+  labs(x = "CRI Fluctuation Level", y = "Value") +
+  theme_minimal()
+
+```
+```
+From the chart, we can see the distribution of the fatalities_total.y and losses_usdm_ppp_total.y variables across the different levels of CRI fluctuation. We can observe that as the CRI fluctuation level increases, the values of both variables also tend to increase. The stacked bar chart also allows us to compare the relative contribution of each variable to the total value. We can conclude that countries with a high level of CRI fluctuation have losses in GDP as they are more vulnerable to disasters. 
+```
+```{r}
+length(final_combined_data$cri_fluctuation_level)
+```
 
 
+```{r}
+ggplot(data = final_combined_data, aes(x = country, y = fatalities_total.y, fill = cri_fluctuation_level)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Country", y = "Total Fatalities", fill = "CRI fluctuation level") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=5))
 
-
-
-
-
-
-
-
-
-
-
+```
 
 
 
