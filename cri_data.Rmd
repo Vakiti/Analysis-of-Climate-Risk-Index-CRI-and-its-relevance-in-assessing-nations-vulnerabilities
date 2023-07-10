@@ -1,6 +1,6 @@
 ---
 title: "cri_data"
-author: "Shanya Chaubey and Srija Vakiti"
+author: "Srija Vakiti and Shanya Chaubey"
 date: "2023-03-11"
 output: html_document
 ---
